@@ -5,16 +5,124 @@
 
 Reverse Engineered ChatGPT API by OpenAI. Extensible for chatbots etc.
 
-Connect with me on [Linkedin](https://www.linkedin.com/in/acheong08/) to support this project. (Not open for commercial opportunities yet. Too busy)
-<br><br>
-You can also follow me on [Twitter](https://twitter.com/GodlyIgnorance) to stay up to date.
-
-> ## [BingGPT](https://github.com/acheong08/BingGPT) is out! It's just like ChatGPT but with live internet access. Reverse engineered from the pre-release by Microsoft.
-> You need to be waitlisted by Microsoft/Bing
+> ## Support my work
+> Make a pull request and fix my bad code.
 
 Discord community: https://discord.gg/WMNtbDUjUv
 
+# V1 Standard ChatGPT
+> ## Update 2023/02/14 9:00 PM GMT+8: It is working. Use this.
+
+## Installation
+`pip3 install revChatGPT`
+
+## Configuration
+
+1. Create account on [OpenAI's ChatGPT](https://chat.openai.com/)
+2. Save your email and password
+
+### Authentication method: (Choose 1)
+#### Email/Password
+Not supported for Google/Microsoft accounts
+```json
+{
+  "email": "email",
+  "password": "your password"
+}
+```
+#### Session token
+Comes from cookies on chat.openai.com as "__Secure-next-auth.session-token"
+
+```json
+{
+  "session_token": "..."
+}
+```
+#### Access token
+https://chat.openai.com/api/auth/session
+```json
+{
+  "access_token": "<access_token>"
+}
+```
+
+#### Optional configuration:
+
+```json
+{
+  "conversation_id": "UUID...",
+  "parent_id": "UUID...",
+  "proxy": "...",
+  "paid": false
+}
+```
+
+3. Save this as `$HOME/.config/revChatGPT/config.json`
+4. If you are using Windows, you will need to create an environment variable named ```HOME``` and set it to your home profile for the script to be able to locate the config.json file.
+
+## Usage
+
+### Command line
+
+`python3 -m revChatGPT.V1`
+
+```
+!help - Show this message
+!reset - Forget the current conversation
+!config - Show the current configuration
+!rollback x - Rollback the conversation (x being the number of messages to rollback)
+!exit - Exit this program
+```
+
+### Developer API
+
+#### Basic example (streamed):
+```python
+from revChatGPT.V1 import Chatbot
+
+chatbot = Chatbot(config={
+  "email": "<your email>",
+  "password": "<your password>"
+})
+
+print("Chatbot: ")
+prev_text = ""
+for data in chatbot.ask(
+    "Hello world",
+):
+    message = data["message"][len(prev_text) :]
+    print(message, end="", flush=True)
+    prev_text = data["message"]
+print()
+```
+
+#### Basic example (single result):
+
+```python
+from revChatGPT.V1 import Chatbot
+
+chatbot = Chatbot(config={
+  "email": "<your email>",
+  "password": "<your password>"
+})
+
+prompt = "how many beaches does portugal have?"
+response = ""
+
+for data in chatbot.ask(
+  prompt
+):
+    response = data["message"]
+
+print(response) 
+```
+#### All API methods
+Refer to the [wiki](https://github.com/acheong08/ChatGPT/wiki/V1) for advanced developer usage.
+
+
 # V2 Fast ChatGPT API
+
+> ## Under maintenance
 
 Using cloudflare bypass server (no browser on server either). Check out the server source code: https://github.com/acheong08/ChatGPT-Proxy-V2
 
@@ -27,7 +135,7 @@ Using cloudflare bypass server (no browser on server either). Check out the serv
 > - I am running the server right now
 
 > ## IMPORTANT
-> You must either define `--paid` in command line or `paid=True` in code if you have a plus subscription. 
+> You must either define `--paid` in command line or `paid=True` in code if you have a plus subscription.
 
 ## Usage
 
@@ -50,7 +158,7 @@ options:
                         Your OpenAI password
   --paid                Use the paid API
   --proxy PROXY         Use a proxy
-  --insecure-auth       Use an insecure authentication method to bypass OpenAI's geo-blocking
+  --insecure-auth       (Deprecated)
   --session_token SESSION_TOKEN Alternative to email and password authentication. Use this if you have Google/Microsoft account.
 ```
 
@@ -71,76 +179,6 @@ if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
 ```
-
-# V1 Standard ChatGPT
-> ## Under maintenance. May be unavailable
-
-## Installation
-`pip3 install revChatGPT`
-
-## Configuration
-
-1. Create account on [OpenAI's ChatGPT](https://chat.openai.com/)
-2. Save your email and password
-
-Required configuration:
-
-```json
-{
-  "email": "<your email>",
-  "password": "your password",
-}
-```
-
-Optional configuration:
-
-```json
-{
-  "conversation_id": "UUID...",
-  "parent_id": "UUID...",
-  "proxy": "...",
-  "paid": false
-}
-```
-
-3. Save this as `$HOME/.config/revChatGPT/config.json`
-
-## Usage
-
-### Command line
-
-`python3 -m revChatGPT.V1`
-
-```
-!help - Show this message
-!reset - Forget the current conversation
-!refresh - Refresh the session authentication
-!config - Show the current configuration
-!rollback x - Rollback the conversation (x being the number of messages to rollback)
-!exit - Exit this program
-```
-
-### Developer
-
-Basic example:
-```python
-from revChatGPT.V1 import Chatbot
-
-chatbot = Chatbot(config={
-  "email": "<your email>",
-  "password": "your password"
-})
-
-for data in chatbot.ask(
-  prompt,
-  conversation_id=chatbot.config.get("conversation"),
-  parent_id=chatbot.config.get("parent_id"),
-):
-  print(data["message"], end="", flush = True)
-print()
-```
-
-Refer to [wiki](https://github.com/acheong08/ChatGPT/wiki/V1) for advanced developer usage
 
 
 # Awesome ChatGPT
