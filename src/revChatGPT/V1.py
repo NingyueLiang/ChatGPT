@@ -2,19 +2,15 @@
 Standard ChatGPT
 """
 import json
-import logging
 import uuid
 from os import environ
 from os import getenv
 from os.path import exists
 
 import requests
-from OpenAIAuth.OpenAIAuth import OpenAIAuth
+from OpenAIAuth import Authenticator, Error as AuthError
 
-# Disable all logging
-logging.basicConfig(level=logging.ERROR)
-
-BASE_URL = environ.get("CHATGPT_BASE_URL") or "https://chat.duti.tech/"
+BASE_URL = environ.get("CHATGPT_BASE_URL") or "https://chatgpt.duti.tech/"
 
 
 class Error(Exception):
@@ -47,7 +43,7 @@ class Chatbot:
             }
             self.session.proxies.update(proxies)
         if "verbose" in config:
-            if type(config["verbose"]) != bool:
+            if not isinstance(config["verbose"], bool):
                 raise Exception("Verbose must be a boolean!")
             self.verbose = config["verbose"]
         else:
@@ -59,14 +55,17 @@ class Chatbot:
         self.parent_id_prev_queue = []
         if "email" in config and "password" in config:
             pass
-        elif "session_token" in config:
-            pass
         elif "access_token" in config:
             self.__refresh_headers(config["access_token"])
+        elif "session_token" in config:
+            pass
         else:
             raise Exception("No login details provided!")
         if "access_token" not in config:
-            self.__login()
+            try:
+                self.__login()
+            except AuthError as error:
+                raise error
 
     def __refresh_headers(self, access_token):
         self.session.headers.clear()
@@ -87,7 +86,7 @@ class Chatbot:
             "email" not in self.config or "password" not in self.config
         ) and "session_token" not in self.config:
             raise Exception("No login details provided!")
-        auth = OpenAIAuth(
+        auth = Authenticator(
             email_address=self.config.get("email"),
             password=self.config.get("password"),
             proxy=self.config.get("proxy"),
@@ -111,6 +110,7 @@ class Chatbot:
         prompt,
         conversation_id=None,
         parent_id=None,
+        timeout=360,
         # gen_title=True,
     ):
         """
@@ -120,27 +120,28 @@ class Chatbot:
         :param parent_id: UUID
         :param gen_title: Boolean
         """
-        if parent_id is not None:
-            if conversation_id is None:
-                error = Error()
-                error.source = "User"
-                error.message = "conversation_id must be set once parent_id is set"
-                error.code = -1
-                raise error
+        if parent_id is not None and conversation_id is None:
+            error = Error()
+            error.source = "User"
+            error.message = "conversation_id must be set once parent_id is set"
+            error.code = -1
+            raise error
             # user-specified covid and parid, check skipped to avoid rate limit
-        else:
-            if conversation_id is None: # new conversation
-                parent_id = str(uuid.uuid4())
-            else: # old conversation, parent_id should be retrieved by conversation_id
-                if conversation_id == self.conversation_id: # conversation not changed
-                    parent_id = self.parent_id
-                else: # conversation changed
-                    # assume no one else can access the current conversation
-                    # hence no need to invoke __map_conversations() 
-                    # if conversation_id exists in conversation_mapping
-                    if conversation_id not in self.conversation_mapping:
-                        self.__map_conversations()
-                    parent_id = self.conversation_mapping[conversation_id]
+
+        if (
+            conversation_id is not None and conversation_id != self.conversation_id
+        ):  # Update to new conversations
+            self.parent_id = None  # Resetting parent_id
+
+        conversation_id = conversation_id or self.conversation_id
+        parent_id = parent_id or self.parent_id
+        if conversation_id is None and parent_id is None:  # new conversation
+            parent_id = str(uuid.uuid4())
+
+        if conversation_id is not None and parent_id is None:
+            if conversation_id not in self.conversation_mapping:
+                self.__map_conversations()
+            parent_id = self.conversation_mapping[conversation_id]
         data = {
             "action": "next",
             "messages": [
@@ -164,7 +165,7 @@ class Chatbot:
         response = self.session.post(
             url=BASE_URL + "api/conversation",
             data=json.dumps(data),
-            timeout=360,
+            timeout=timeout,
             stream=True,
         )
         self.__check_response(response)
@@ -198,6 +199,7 @@ class Chatbot:
                 "conversation_id": conversation_id,
                 "parent_id": parent_id,
             }
+        self.conversation_mapping[conversation_id] = parent_id
         if parent_id is not None:
             self.parent_id = parent_id
         if conversation_id is not None:
